@@ -1,5 +1,5 @@
 // ArduinoJson - arduinojson.org
-// Copyright Benoit Blanchon 2014-2018
+// Copyright Benoit Blanchon 2014-2019
 // MIT License
 
 #include <ArduinoJson.h>
@@ -269,6 +269,12 @@ TEST_CASE("deserialize JSON object") {
 
     SECTION("null as a key") {
       DeserializationError err = deserializeJson(doc, "{null:\"value\"}");
+
+      REQUIRE(err == DeserializationError::Ok);
+    }
+
+    SECTION("Repeated key") {
+      DeserializationError err = deserializeJson(doc, "{a:{b:{c:1}},a:2}");
 
       REQUIRE(err == DeserializationError::Ok);
     }

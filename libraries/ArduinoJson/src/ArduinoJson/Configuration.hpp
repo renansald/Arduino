@@ -1,5 +1,5 @@
 // ArduinoJson - arduinojson.org
-// Copyright Benoit Blanchon 2014-2018
+// Copyright Benoit Blanchon 2014-2019
 // MIT License
 
 #pragma once
@@ -120,6 +120,11 @@
 #endif
 #endif
 
+// Convert unicode escape sequence (\u0123) to UTF-8
+#ifndef ARDUINOJSON_DECODE_UNICODE
+#define ARDUINOJSON_DECODE_UNICODE 0
+#endif
+
 // Control the exponentiation threshold for big numbers
 // CAUTION: cannot be more that 1e9 !!!!
 #ifndef ARDUINOJSON_POSITIVE_EXPONENTIATION_THRESHOLD
@@ -134,7 +139,7 @@
 #ifndef ARDUINOJSON_LITTLE_ENDIAN
 #if defined(_MSC_VER) ||                                                      \
     (defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__) || \
-    (defined(__LITTLE_ENDIAN__))
+    defined(__LITTLE_ENDIAN__) || defined(__i386) || defined(__x86_64)
 #define ARDUINOJSON_LITTLE_ENDIAN 1
 #else
 #define ARDUINOJSON_LITTLE_ENDIAN 0

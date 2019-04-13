@@ -1,5 +1,5 @@
 // ArduinoJson - arduinojson.org
-// Copyright Benoit Blanchon 2014-2018
+// Copyright Benoit Blanchon 2014-2019
 // MIT License
 
 #pragma once
@@ -30,7 +30,7 @@ class SizedRamStringAdapter {
   }
 
   size_t size() const {
-    return strlen(reinterpret_cast<const char*>(_str));
+    return _size;
   }
 
   bool isStatic() const {

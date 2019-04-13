@@ -1,6 +1,48 @@
 ArduinoJson: change log
 =======================
 
+v6.10.0 (2019-03-22)
+-------
+
+* Fixed an integer overflow in the JSON deserializer
+* Added overflow handling in `JsonVariant::as<T>()` and `JsonVariant::is<T>()`.
+   - `as<T>()` returns `0` if the integer `T` overflows
+   - `is<T>()` returns `false` if the integer `T` overflows
+* Added `BasicJsonDocument` to support custom allocator (issue #876)
+* Added `JsonDocument::containsKey()` (issue #938)
+* Added `JsonVariant::containsKey()`
+
+v6.9.1 (2019-03-01)
+------
+
+* Fixed warning "unused variable" with GCC 4.4 (issue #912)
+* Fixed warning "cast  increases required alignment" (issue #914)
+* Fixed warning "conversion may alter value" (issue #914)
+* Fixed naming conflict with "CAPACITY" (issue #839)
+* Muted warning "will change in GCC 7.1" (issue #914)
+* Added a clear error message for `StaticJsonBuffer` and `DynamicJsonBuffer`
+* Marked ArduinoJson.h  as a "system header"
+
+v6.9.0 (2019-02-26)
+------
+
+* Decode escaped Unicode characters like \u00DE (issue #304, PR #791)
+  Many thanks to Daniel Schulte (aka @trilader) who implemented this feature.
+* Added option ARDUINOJSON_DECODE_UNICODE to enable it
+* Converted `JsonArray::copyFrom()/copyTo()` to free functions `copyArray()`
+* Renamed `JsonArray::copyFrom()` and `JsonObject::copyFrom()` to `set()`
+* Renamed `JsonArray::get()` to `getElement()`
+* Renamed `JsonArray::add()` (without arg) to `addElement()`
+* Renamed `JsonObject::get()` to `getMember()`
+* Renamed `JsonObject::getOrCreate()` to `getOrAddMember()`
+* Fixed `JsonVariant::isNull()` not returning `true` after `set((char*)0)`
+* Fixed segfault after `variant.set(serialized((char*)0))`
+* Detect `IncompleteInput` in `false`, `true`, and `null`
+* Added `JsonDocument::size()`
+* Added `JsonDocument::remove()`
+* Added `JsonVariant::clear()`
+* Added `JsonVariant::remove()`
+
 v6.8.0-beta (2019-01-30)
 -----------
 
