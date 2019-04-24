@@ -1,27 +1,33 @@
 /*Esquemas de ligação:
- * Modulo RFID:
+   Modulo RFID:
   - RST -> 9;
   - MISO -> 12;
   - MOSI -> 11;
-  - SCK -> 13; 
+  - SCK -> 13;
   - SDA -> 10;
   -Alimentação 3.3v;
-  MODELO LINK GOOGLE MAPS:https://maps.google.com/maps?ll=lat,long
- * Modulo SIM808L
+   Modulo SIM808L
   - RX -> 5;
   - TX -> 6;
+    Modulo obd2
+   - MISO -> 12;
+   - MOSI -> 11;
+   - SCK -> 13;
+   - SC -> 4;
   APN USUARIO E SENHA OPERADORAS
     TIM: "timbrasil.br", "tim", "tim"
     Vivo: "zap.vivo.com.br", "vivo", "vivo"
     Claro: "claro.com.br", "claro", "claro"
     OI: "gprs.oi.com.br", "oi", "oi"
- */
+*/
 //Bibliotecas
-#include <SPI.h> //Faz a comunicação entre o arduino e o RFID
+#include <SPI.h>
 #include <Lista.h>
 #include <MFRC522.h>
-#include <SoftwareSerial.h> //Gera comunicção serie no arduino
+#include <SoftwareSerial.h>
 #include "inetGSM.h"
+#include <CAN.h>
+#include <OBD2.h>
 
 //Declaração de variaveis pinos
 #define SS_PIN 10 //Pino SS do modulo RFID
@@ -31,9 +37,13 @@
 #define DEBUG true
 #define LED_GREEN 4
 #define LED_RED 3
+#define PID VEHICLE_SPEED
 
 //Variaveis globais
-String latitudeAux, longitudeAux, timeGPS;
+String latitudeAux, longitudeAux;
+char schoolBusId[16];
+unsigned long timer;
+int timerUpload;
 
 //Declara pinos para a comuniçacao Serial
 SoftwareSerial sim808(RX_SIM808, TX_SIM808);
@@ -55,222 +65,142 @@ void setup() {
   SPI.begin();      //Inicia  SPI bus
   mfrc522.PCD_Init();   //Inicia MFRC522
   sim808.begin(9600);
-  pinMode(LED_GREEN, OUTPUT);
-  pinMode(LED_RED, OUTPUT);
-  
-  //Prepara chave - padrao de fabrica = FFFFFFFFFFFFh
-  for (byte i = 0; i < 6; i++) key.keyByte[i] = 0xFF;
-}
-
-void loop() {
- // if((gprsConexao.attachGPRS("zap.vivo.com.br", "vivo", "vivo")) && (listaEmbarcados.ehVazio() != 1)){
-    //Função para o servidor
-  //}
-  //Aguarda cartao
-  while (!mfrc522.PICC_IsNewCardPresent())
-  {
-    delay(100);
-  }
-  if (mfrc522.PICC_ReadCardSerial())
-  {
-    modo_leitura();
-  }
-  
-}
-
-void modo_leitura(){
-  char nome[50];
-  char telefone[13];
-  char id[15];
-  char latitude[11];
-  char longitude[11];
-  char hora[9];
-  
-  //Mostra UID na serial
-  Serial.print(F("UID da tag : "));
-  String conteudo = "";
-  byte letra;
-  for (byte i = 0; i < mfrc522.uid.size; i++)
-  {
-    Serial.print(mfrc522.uid.uidByte[i] < 0x10 ? " 0" : " ");
-    Serial.print(mfrc522.uid.uidByte[i], HEX);
-    conteudo.concat(String(mfrc522.uid.uidByte[i]<0x10 ? " 0" : " "));
-    conteudo.concat(String(mfrc522.uid.uidByte[i], HEX));
-  }
-  Serial.println();
-
-  //Obtem os dados do setor 4, bloco 16 = ID
-  byte sector         = 4;
-  byte blockAddr      = 16;
-  byte trailerBlock   = 19;
-  byte status;
-  byte buffer[18];
-  byte size = sizeof(buffer);
- 
-  //Autenticacao usando chave A
-  status=mfrc522.PCD_Authenticate(MFRC522::PICC_CMD_MF_AUTH_KEY_A,
-                                  trailerBlock, &key, &(mfrc522.uid));
-  if (status != MFRC522::STATUS_OK) {
-    digitalWrite(LED_RED, HIGH);
-    delay(3000);
-    digitalWrite(LED_RED, LOW);
-    Serial.print(F("PCD_Authenticate() failed: "));
-    Serial.println(mfrc522.GetStatusCodeName(status));
-    return;
-  }
-  status = mfrc522.MIFARE_Read(blockAddr, buffer, &size);
-  if (status != MFRC522::STATUS_OK) {
-    digitalWrite(LED_RED, HIGH);
-    delay(3000);
-    digitalWrite(LED_RED, LOW);
-    Serial.print(F("MIFARE_Read() failed: "));
-    Serial.println(mfrc522.GetStatusCodeName(status));
-  }
-  //Obtem e mostra os dados do ID no LCD
-  //lcd.clear();
-  //lcd.setCursor(0, 0);
-  for (byte i = 1; i < 16; i++)
-  {
-    if(char(buffer[i]) == '!'){
-      id[i-1] = '\0';
-      i = 16;
+  while (true) { //Conectando a OBD2
+    Serial.print(F("Attempting to connect to OBD2 CAN bus ... "));
+    if (!OBD2.begin()) {
+      Serial.println(F("failed!"));
+      delay(1000);
+    } else {
+      Serial.println(F("success"));
+      break;
     }
-    else{
-    Serial.print(char(buffer[i]));
-    //lcd.write(char(buffer[i]));
-    id[i-1] = (char(buffer[i]));
-    }
-  }
-  Serial.println(F("ID"));
-  Serial.println(id);
-  Serial.println();
-  
-  //Obtem os dados do setor 3, bloco 12 = Nome
-  sector         = 3;
-  blockAddr      = 12;
-  trailerBlock   = 15;
- 
-  //Autenticacao usando chave A
-  status=mfrc522.PCD_Authenticate(MFRC522::PICC_CMD_MF_AUTH_KEY_A,
-                                  trailerBlock, &key, &(mfrc522.uid));
-  if (status != MFRC522::STATUS_OK) {
-    digitalWrite(LED_RED, HIGH);
-    delay(3000);
-    digitalWrite(LED_RED, LOW);
-    Serial.print(F("PCD_Authenticate() failed: "));
-    Serial.println(mfrc522.GetStatusCodeName(status));
-    return;
-  }
-  status = mfrc522.MIFARE_Read(blockAddr, buffer, &size);
-  if (status != MFRC522::STATUS_OK) {
-    digitalWrite(LED_RED, HIGH);
-    delay(3000);
-    digitalWrite(LED_RED, LOW);
-    Serial.print(F("MIFARE_Read() failed: "));
-    Serial.println(mfrc522.GetStatusCodeName(status));
-  }
-  //Obtem e mostra os dados do nome no LCD
-  //lcd.clear();
-  //lcd.setCursor(0, 0);
-  for (byte i = 1; i < 16; i++)
-  {
-    if(char(buffer[i]) == '!'){
-      nome[i-1] = '\0';
-      i = 16;
-    }
-    else{
-    Serial.print(char(buffer[i]));
-    //lcd.write(char(buffer[i]));
-    nome[i-1] = (char(buffer[i]));
-    }
-  }
-  Serial.println(F("NOME NA VARIAVEL"));
-  Serial.println(nome);
-  Serial.println();
- 
-  //Obtem os dados do setor 2, bloco 8 = Telefone
-  sector         = 2;
-  blockAddr      = 8;
-  trailerBlock   = 11;
- 
-  //Autenticacao usando chave A
-  status=mfrc522.PCD_Authenticate(MFRC522::PICC_CMD_MF_AUTH_KEY_A,
-                                  trailerBlock, &key, &(mfrc522.uid));
-  if (status != MFRC522::STATUS_OK)
-  {
-    digitalWrite(LED_RED, HIGH);
-    delay(3000);
-    digitalWrite(LED_RED, LOW);
-    Serial.print(F("PCD_Authenticate() failed: "));
-    Serial.println(mfrc522.GetStatusCodeName(status));
-    return;
-  }
-  status = mfrc522.MIFARE_Read(blockAddr, buffer, &size);
-  if (status != MFRC522::STATUS_OK)
-  {
-    digitalWrite(LED_RED, HIGH);
-    delay(3000);
-    digitalWrite(LED_RED, LOW);
-    Serial.print(F("MIFARE_Read() failed: "));
-    Serial.println(mfrc522.GetStatusCodeName(status));
-  }
-  //lcd.setCursor(0, 1);
-  for (byte i = 0; i < 13; i++)
-  {
-    if(char(buffer[i]) == '!'){
-      telefone[i] = '\0';
-      i = 16;
-    }
-    else{
-    Serial.print(char(buffer[i]));
-    //lcd.write(char(buffer[i]));
-    telefone[i] = (char(buffer[i]));
-    }
-  }
-  Serial.println(F("Numero"));
-  Serial.println(telefone);
-  Serial.println();
- 
-  // Halt PICC
-  mfrc522.PICC_HaltA();
-  // Stop encryption on PCD
-  mfrc522.PCD_StopCrypto1();
 
-  //Captar a logitude/latitude
-  cordenadas("AT+CGNSINF", 1000, DEBUG);
-  latitudeAux.toCharArray(latitude, 11);
-  longitudeAux.toCharArray(longitude, 11);
-  timeGPS.toCharArray(hora, 9);
+    pinMode(LED_GREEN, OUTPUT);
+    pinMode(LED_RED, OUTPUT);
 
-  addLista(nome, telefone, id, latitude, longitude, hora);
-  digitalWrite(LED_GREEN, HIGH);
-  delay(3000);
-  digitalWrite(LED_GREEN, LOW);
-}
-
-void addLista(char nome[], char telefone[], char id[], char latitude[], char longitude[], char hora[]){
-  Serial.println("add Lista");
-  if(!listaEmbarcados.existe(id)){
-    listaEmbarcados.adiciona(nome, id, telefone, latitude, longitude, hora, "EMBARQUE");
-    sms(nome, telefone, latitude, longitude, 0, hora);
+    //Prepara chave - padrao de fabrica = FFFFFFFFFFFFh
+    for (byte i = 0; i < 6; i++) key.keyByte[i] = 0xFF;
+    while (!mfrc522.PICC_IsNewCardPresent()) {
+      delay(100);
+    }
+    if (mfrc522.PICC_ReadCardSerial()) {
+      IdSchoolBus();
+    }
+    timer = millis() * 1000;
+    // timerUpload recebe o valo que tá no servidor de tempo de upload da coordenada do onibus e velociodade
+    
   }
-  else{
-    listaEmbarcados.adiciona(nome, id, telefone, latitude, longitude, hora, "DESEMBARQUE");
-    sms(nome, telefone, latitude, longitude, 1, hora);
+
+  void loop() {
+    if (mfrc522.PICC_ReadCardSerial()) {
+      modo_leitura();
+    }
+    if (((millis() * 1000) - timer) >= timerUpload) {
+      float speedBus = SpeedBus(PID);
+      //coordinates() Olhar com Jamisson
+      //Upload para o servidor dados onibus;
+      timer = millis() * 1000;
+    }
+    // timerUpload recebe o valor que tá no servidor de tempo de upload da coordenada do onibus e velociodade
+
+  }
+
+  void modo_leitura() {
+    char id[15];
+    char latitude[11];
+    char longitude[11];
+    char hora[9];
+
+    /*Mostra UID na serial
+      Serial.print(F("UID da tag : "));
+      String conteudo = "";
+      byte letra;
+      for (byte i = 0; i < mfrc522.uid.size; i++)
+      {
+      Serial.print(mfrc522.uid.uidByte[i] < 0x10 ? " 0" : " ");
+      Serial.print(mfrc522.uid.uidByte[i], HEX);
+      conteudo.concat(String(mfrc522.uid.uidByte[i] < 0x10 ? " 0" : " "));
+      conteudo.concat(String(mfrc522.uid.uidByte[i], HEX));
+      }
+      Serial.println();*/
+
+    byte sector         = 2;
+    byte blockAddr      = 8;
+    byte trailerBlock   = 11;
+    byte status;
+    byte buffer[18];
+    byte size = sizeof(buffer);
+
+    //Obtem os dados do setor 2, bloco 8 = Telefone
+    sector         = 2;
+    blockAddr      = 8;
+    trailerBlock   = 11;
+
+    //Autenticacao usando chave A
+    status = mfrc522.PCD_Authenticate(MFRC522::PICC_CMD_MF_AUTH_KEY_A, trailerBlock, &key, &(mfrc522.uid));
+    if (status != MFRC522::STATUS_OK) {
+      digitalWrite(LED_RED, HIGH);
+      delay(3000);
+      digitalWrite(LED_RED, LOW);
+      Serial.print(F("PCD_Authenticate() failed: "));
+      Serial.println(mfrc522.GetStatusCodeName(status));
+      return;
+    }
+    status = mfrc522.MIFARE_Read(blockAddr, buffer, &size);
+    if (status != MFRC522::STATUS_OK) {
+      digitalWrite(LED_RED, HIGH);
+      delay(3000);
+      digitalWrite(LED_RED, LOW);
+      Serial.print(F("MIFARE_Read() failed: "));
+      Serial.println(mfrc522.GetStatusCodeName(status));
+    }
+    for (byte i = 0; i < 13; i++) {
+      if (char(buffer[i]) == '!') {
+        id[i] = '\0';
+        i = 16;
+      }
+      else {
+        Serial.print(char(buffer[i]));
+        id[i] = (char(buffer[i]));
+      }
+    }
+    /*
+      Serial.println(Id);
+      Serial.println();
+    */
+    // Halt PICC
+    mfrc522.PICC_HaltA();
+    // Stop encryption on PCD
+    mfrc522.PCD_StopCrypto1();
+
+    //Captar a logitude/latitude
+    // coordinates() pegar com o Jamisson o codigo dele
+    latitudeAux.toCharArray(latitude, 11);
+    longitudeAux.toCharArray(longitude, 11);
+    timeGPS.toCharArray(hora, 9);
+
+    addBuffer(id, latitude, longitude, hora);
+    digitalWrite(LED_GREEN, HIGH);
+    delay(3000);
+    digitalWrite(LED_GREEN, LOW);
+  }
+
+  void addBuffer(char id[], char latitude[], char longitude[], char hora[]) {
+    listaEmbarcados.adiciona(id, latitude, longitude, hora);
   }
 }
 
-void sms(char nome[], char telefone[], char latitude[], char longitude[], int acao, char hora[]){
+/*void sms(char nome[], char telefone[], char latitude[], char longitude[], int acao, char hora[]) {
   Serial.println("SMS");
   String destinatario = "AT+CMGS=\"";
   destinatario += telefone;
   destinatario += "\"";
   String msg = (F("O aluno(a) "));
   msg += nome;
-  if(acao == 0){
+  if (acao == 0) {
     msg += (F(" embarcou no transporte escolar na seguinte localizacao "));
   }
-  else{
+  else {
     msg += (F(" desembarcou do transporte escolar na seguinte localizacao "));
   }
   msg += (F("https://maps.google.com/maps?ll="));
@@ -291,41 +221,67 @@ void sms(char nome[], char telefone[], char latitude[], char longitude[], int ac
   Serial.println("Enviado");
   Serial.println(destinatario);
   Serial.println(msg);
+  }*/
+
+IdSchoolBus() {
+  byte sector         = 2;
+  byte blockAddr      = 8;
+  byte trailerBlock   = 11;
+  byte status;
+  byte buffer[18];
+  byte size = sizeof(buffer);
+
+  //Obtem os dados do setor 2, bloco 8 = Telefone
+  sector         = 2;
+  blockAddr      = 8;
+  trailerBlock   = 11;
+
+  //Autenticacao usando chave A
+  status = mfrc522.PCD_Authenticate(MFRC522::PICC_CMD_MF_AUTH_KEY_A,
+                                    trailerBlock, &key, &(mfrc522.uid));
+  if (status != MFRC522::STATUS_OK)
+  {
+    digitalWrite(LED_RED, HIGH);
+    delay(3000);
+    digitalWrite(LED_RED, LOW);
+    Serial.print(F("PCD_Authenticate() failed: "));
+    Serial.println(mfrc522.GetStatusCodeName(status));
+    return;
+  }
+  status = mfrc522.MIFARE_Read(blockAddr, buffer, &size);
+  if (status != MFRC522::STATUS_OK)
+  {
+    digitalWrite(LED_RED, HIGH);
+    delay(3000);
+    digitalWrite(LED_RED, LOW);
+    Serial.print(F("MIFARE_Read() failed: "));
+    Serial.println(mfrc522.GetStatusCodeName(status));
+  }
+  for (byte i = 0; i < 13; i++)
+  {
+    if (char(buffer[i]) == '!') {
+      schoolBusId[i] = '\0';
+      i = 16;
+    }
+    else {
+      Serial.print(char(buffer[i]));
+      schoolBusId[i] = (char(buffer[i]));
+    }
+  }
+  // Halt PICC
+  mfrc522.PICC_HaltA();
+  // Stop encryption on PCD
+  mfrc522.PCD_StopCrypto1();
 }
 
-void cordenadas(String command , const int timeout , boolean debug){
+float SpeedBus(int pid) {
+  // read the Speed of the bus
+  float speedBus = OBD2.pidRead(pid);
 
-  String data[5];
-
-  sim808.println(command);
-  long int time = millis();
-  int i = 0;
-
-  while((time+timeout) > millis()){
-    while(sim808.available()){
-      Serial.println("AQUIIIIIIIIIIIIII");
-      char c = sim808.read();
-      if (c != ',') {
-         data[i] +=c;
-         Serial.println(data[i]);
-         delay(100);
-      } else {
-        i++;  
-      }
-      if (i == 5) {
-        delay(100);
-        goto exitL;
-      }
-    }
-  }exitL:
-  if (debug) {
-    //state = data[1];
-    timeGPS = data[2];
-    latitudeAux = data[3];
-    longitudeAux =data[4];
-    Serial.println("Coordenada");
-    Serial.println(timeGPS);
-    Serial.println(latitudeAux);
-    Serial.println(longitudeAux);
+  if (isnan(speedBus)) {
+    return -1;
+  } else {
+    speedBus *= 1,60934; //convertion from miles to km
+    return speedBus;
   }
 }

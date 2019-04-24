@@ -31,7 +31,7 @@
 int ctrl;
 
 //Inicializa bibliotecas
-SharpIr sharpIR(sharp, modelo);
+SharpIR sharpIr(sharp, modelo);
 Ultrasonic ultrasonicoEsquerdo(triggerEsquerdo, echoEsquerdo);
 Ultrasonic ultrasonicoDireito(triggerDireito, echoDireito);
 
@@ -46,7 +46,7 @@ void setup(){
  pinMode(traseiraDireita, INPUT);
  pinMode(dianteiraEsquerda, INPUT);
  pinMode(dianteiraDireita, INPUT);
- pinMode(led, OUTPUT)
+ pinMode(led, OUTPUT);
  //Lógica para aguarda 5 segundos, regra obrigatória da robocore
  delay(1000);
  digitalWrite(led, HIGH);
@@ -70,7 +70,7 @@ void loop(){
   else if((digitalRead(traseiraEsquerda) == 0) || (digitalRead(traseiraDireita) == 0)){
     MoveFrente();
   }
-  else if((sharpIR.distance() < 70) && (digitalRead(dianteiraEsquerda) == 1) && (digitalRead(dianteiraDireita) == 1)){
+  else if((sharpIr.distance() < 70) && (digitalRead(dianteiraEsquerda) == 1) && (digitalRead(dianteiraDireita) == 1)){
     MoveFrente();
     ctrl = 0; 
   }
@@ -87,7 +87,7 @@ void loop(){
       GirarAEsquerda();
     }
     else{
-      GirarADireita()
+      GirarADireita();
     }
   }
 }
