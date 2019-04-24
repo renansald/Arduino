@@ -5,7 +5,7 @@ ListaAlunos::ListaAlunos(){
   lista.tras = lista.frente;
 }
 
-void ListaAlunos:: Add(tAluno aluno){
+void ListaAlunos:: Addi(tAluno aluno){
   lista.tras->id = aluno.id;
   lista.tras->longitude = aluno.longitude;
   lista.tras->latitude = aluno.latitude;
@@ -14,7 +14,7 @@ void ListaAlunos:: Add(tAluno aluno){
   lista.tras = lista.tras->proximo;
 }
 
-void ListaAlunos:: Remove(tAluno* aluno){
+void ListaAlunos:: Remov(tAluno* aluno){
   if(IsEmpty()){
     return;
   }

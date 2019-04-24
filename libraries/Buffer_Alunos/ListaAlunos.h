@@ -20,8 +20,8 @@ typedef struct lista{
 class ListaAlunos{
 public:
   ListaAlunos();
-  void Add(tAluno aluno);
-  void Remove(tAluno *aluno);
+  void Addi(tAluno aluno);
+  void Remov(tAluno *aluno);
   bool IsEmpty();
   void Imprime();
 

@@ -22,7 +22,7 @@
 */
 //Bibliotecas
 #include <SPI.h>
-#include <Lista.h>
+#include <ListaAlunos.h>
 #include <MFRC522.h>
 #include <SoftwareSerial.h>
 #include "inetGSM.h"
@@ -40,7 +40,6 @@
 #define PID VEHICLE_SPEED
 
 //Variaveis globais
-String latitudeAux, longitudeAux;
 char schoolBusId[16];
 unsigned long timer;
 int timerUpload;
@@ -55,7 +54,7 @@ MFRC522 mfrc522(SS_PIN, RST_PIN);
 MFRC522::MIFARE_Key key;
 
 //Inicializa a lista
-Lista listaEmbarcados;
+ListaAlunos listaEmbarcados;
 
 //Inicializa objeto para conexao GPRS
 InetGSM gprsConexao;
@@ -85,11 +84,13 @@ void setup() {
     }
     if (mfrc522.PICC_ReadCardSerial()) {
       IdSchoolBus();
+      //função para enviar o ID do bus
     }
     timer = millis() * 1000;
-    // timerUpload recebe o valo que tá no servidor de tempo de upload da coordenada do onibus e velociodade
+    // timerUpload recebe o valor que tá no servidor de tempo de upload da coordenada do onibus e velociodade
     
   }
+}
 
   void loop() {
     if (mfrc522.PICC_ReadCardSerial()) {
@@ -107,22 +108,7 @@ void setup() {
 
   void modo_leitura() {
     char id[15];
-    char latitude[11];
-    char longitude[11];
-    char hora[9];
-
-    /*Mostra UID na serial
-      Serial.print(F("UID da tag : "));
-      String conteudo = "";
-      byte letra;
-      for (byte i = 0; i < mfrc522.uid.size; i++)
-      {
-      Serial.print(mfrc522.uid.uidByte[i] < 0x10 ? " 0" : " ");
-      Serial.print(mfrc522.uid.uidByte[i], HEX);
-      conteudo.concat(String(mfrc522.uid.uidByte[i] < 0x10 ? " 0" : " "));
-      conteudo.concat(String(mfrc522.uid.uidByte[i], HEX));
-      }
-      Serial.println();*/
+    tAluno aluno;
 
     byte sector         = 2;
     byte blockAddr      = 8;
@@ -164,66 +150,26 @@ void setup() {
         id[i] = (char(buffer[i]));
       }
     }
-    /*
-      Serial.println(Id);
-      Serial.println();
-    */
     // Halt PICC
     mfrc522.PICC_HaltA();
     // Stop encryption on PCD
     mfrc522.PCD_StopCrypto1();
 
     //Captar a logitude/latitude
-    // coordinates() pegar com o Jamisson o codigo dele
-    latitudeAux.toCharArray(latitude, 11);
-    longitudeAux.toCharArray(longitude, 11);
-    timeGPS.toCharArray(hora, 9);
+    // coordinates() pegar com o Jamisson o codigo dele mandar o endereçao de aluno.longitude, aluno.latitude e aluno.timer;
+    aluno.id = id;
 
-    addBuffer(id, latitude, longitude, hora);
+    addBuffer(aluno);
     digitalWrite(LED_GREEN, HIGH);
     delay(3000);
     digitalWrite(LED_GREEN, LOW);
   }
 
-  void addBuffer(char id[], char latitude[], char longitude[], char hora[]) {
-    listaEmbarcados.adiciona(id, latitude, longitude, hora);
+  void addBuffer(tAluno aluno) {
+    listaEmbarcados.Addi(aluno);
   }
-}
 
-/*void sms(char nome[], char telefone[], char latitude[], char longitude[], int acao, char hora[]) {
-  Serial.println("SMS");
-  String destinatario = "AT+CMGS=\"";
-  destinatario += telefone;
-  destinatario += "\"";
-  String msg = (F("O aluno(a) "));
-  msg += nome;
-  if (acao == 0) {
-    msg += (F(" embarcou no transporte escolar na seguinte localizacao "));
-  }
-  else {
-    msg += (F(" desembarcou do transporte escolar na seguinte localizacao "));
-  }
-  msg += (F("https://maps.google.com/maps?ll="));
-  msg += latitude;
-  msg += (F(","));
-  msg += longitude;
-  msg += (F(" as "));
-  msg += hora;
-  sim808.println("AT+CMGF=1\r"); //Ativa a função de envio de sms
-  delay(100);
-  sim808.println(destinatario); //Define o destinatario da mensagem;
-  delay(100);
-  sim808.println(msg);
-  delay(100);
-  sim808.println((char)26);
-  delay(20000);
-  sim808.flush();
-  Serial.println("Enviado");
-  Serial.println(destinatario);
-  Serial.println(msg);
-  }*/
-
-IdSchoolBus() {
+void IdSchoolBus() {
   byte sector         = 2;
   byte blockAddr      = 8;
   byte trailerBlock   = 11;
